@@ -139,6 +139,64 @@
         .over-limit { color: #ff5252 !important; }
     </style>
 </head>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<div id="ai-food-tracker" style="background:#2c2c2c; color:white; padding:20px; border-radius:12px; margin:20px 0; font-family: sans-serif;">
+    <h3 style="margin-top:0;">🍲 AI 營養自動辨識</h3>
+    <input type="file" id="food-input" accept="image/*" capture="camera" style="display:none;">
+    <button onclick="document.getElementById('food-input').click()" style="background:#4CAF50; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; width:100%;">
+        📷 拍攝標籤或食物
+    </button>
+    <p id="status" style="font-size:12px; color:#aaa; margin:10px 0;">等待操作...</p>
+    <div style="display:flex; justify-content:space-between; background:#1a1a1a; padding:10px; border-radius:8px;">
+        <span>🔥 剩餘熱量: <b id="cal-left">2000</b> kcal</span>
+        <span>🥩 蛋白質: <b id="pro-total">0</b> g</span>
+    </div>
+</div>
+
+<script>
+const MY_API_KEY = 'AIzaSyCV4UqHOr0fVu5RUBvZvrpZxhzXeBljmHY'; 
+
+document.getElementById('food-input').onchange = async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const status = document.getElementById('status');
+    status.innerText = "分析中，請稍候...";
+
+    try {
+        // 優先讀取 Base64
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+            const base64 = reader.result;
+            
+            // 呼叫 Gemini AI
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${MY_API_KEY}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    contents: [{ parts: [
+                        {text: "辨識圖中食物或營養標籤，估算熱量(kcal)與蛋白質(g)。請嚴格回傳JSON: {\"cal\":數字, \"pro\":數字, \"name\":\"名稱\"}"},
+                        {inline_data: {mime_type: "image/jpeg", data: base64.split(',')[1]}}
+                    ]}]
+                })
+            });
+            
+            const resData = await resp.json();
+            const result = JSON.parse(resData.candidates[0].content.parts[0].text.replace(/```json|```/g, ''));
+            
+            // 更新數值
+            document.getElementById('cal-left').innerText -= result.cal;
+            document.getElementById('pro-total').innerText = parseFloat(document.getElementById('pro-total').innerText) + result.pro;
+            status.innerText = `辨識成功: ${result.name}`;
+            alert(`已自動扣除 ${result.cal}大卡，增加 ${result.pro}g 蛋白質`);
+        };
+    } catch(err) {
+        status.innerText = "辨識失敗，請重試";
+        console.error(err);
+    }
+};
+</script>
 <body>
 
 <div class="card">
@@ -231,3 +289,4 @@
 
 </body>
 </html>
+
