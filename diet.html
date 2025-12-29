@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💪 猛男營養追蹤</title>
+    <style>
+        /* 全螢幕背景圖設定 */
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: #000; /* 備用背景色 */
+            position: relative;
+        }
+
+        /* 背景圖片層：控制透明度 */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url('https://images.unsplash.com/photo-1583454110551-21f2fa20019b?q=80&w=2070&auto=format&fit=crop'); 
+            background-size: cover;
+            background-position: center;
+            opacity: 0.3; /* 這裡調整圖片透明度，0.1 更暗，0.9 更亮 */
+            z-index: -1;
+        }
+
+        /* 主卡片：深色半透明 */
+        .card {
+            background: rgba(30, 30, 45, 0.85); /* 半透明深色底 */
+            backdrop-filter: blur(10px); /* 磨砂玻璃效果 */
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 400px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        h2 {
+            text-align: center;
+            color: #00e5ff;
+            margin-top: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* 目標設定區 */
+        .goal-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 900;
+        }
+
+        /* 數值顯示 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        #remainingCal { color: #50fa7b; }
+        #totalProDisplay { color: #8be9fd; }
+
+        /* 輸入框樣式 */
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #00e5ff;
+        }
+
+        /* 按鈕樣式 */
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn-add {
+            background: linear-gradient(45deg, #00c853, #b2ff59);
+            color: #000;
+        }
+
+        .btn-add:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 200, 83, 0.4); }
+
+        .btn-reset {
+            background: transparent;
+            color: #ff5252;
+            text-decoration: underline;
+            font-size: 13px;
+            margin-top: 20px;
+        }
+
+        /* 警告顏色 */
+        .over-limit { color: #ff5252 !important; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Fitness Tracker</h2>
+
+    <div class="goal-section">
+        <div class="stat-label">🎯 今日目標熱量</div>
+        <input type="number" id="goalInput" onchange="updateGoal()" placeholder="設定目標">
+    </div>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">剩餘熱量</div>
+            <div id="remainingCal" class="stat-value">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">總蛋白質</div>
+            <div id="totalProDisplay" class="stat-value">0g</div>
+        </div>
+    </div>
+
+    <div style="border-top: 1px solid #444; padding-top: 15px;">
+        <div class="stat-label">🍴 新增攝取 (kcal)</div>
+        <input type="number" id="addCal" placeholder="熱量">
+        <div class="stat-label">🥩 新增蛋白質 (g)</div>
+        <input type="number" id="addPro" placeholder="蛋白質">
+        <button class="btn-add" onclick="addEntry()">加入今日進度</button>
+    </div>
+    
+    <button class="btn-reset" onclick="resetData()">重置數據</button>
+</div>
+
+<script>
+    let calorieGoal = 2000;
+    let consumedCal = 0;
+    let totalPro = 0;
+
+    window.onload = function() {
+        calorieGoal = parseInt(localStorage.getItem('calorieGoal')) || 2000;
+        consumedCal = parseInt(localStorage.getItem('consumedCal')) || 0;
+        totalPro = parseInt(localStorage.getItem('totalPro')) || 0;
+        
+        document.getElementById('goalInput').value = calorieGoal;
+        refreshUI();
+    };
+
+    function updateGoal() {
+        calorieGoal = parseInt(document.getElementById('goalInput').value) || 0;
+        localStorage.setItem('calorieGoal', calorieGoal);
+        refreshUI();
+    }
+
+    function addEntry() {
+        consumedCal += parseInt(document.getElementById('addCal').value) || 0;
+        totalPro += parseInt(document.getElementById('addPro').value) || 0;
+        
+        document.getElementById('addCal').value = '';
+        document.getElementById('addPro').value = '';
+        
+        save();
+    }
+
+    function save() {
+        localStorage.setItem('consumedCal', consumedCal);
+        localStorage.setItem('totalPro', totalPro);
+        refreshUI();
+    }
+
+    function refreshUI() {
+        const remaining = calorieGoal - consumedCal;
+        const remDisplay = document.getElementById('remainingCal');
+        remDisplay.innerText = remaining;
+        document.getElementById('totalProDisplay').innerText = totalPro + "g";
+        
+        if (remaining < 0) {
+            remDisplay.classList.add('over-limit');
+        } else {
+            remDisplay.classList.remove('over-limit');
+        }
+    }
+
+    function resetData() {
+        if (confirm("確定要清空今天的記錄嗎？")) {
+            consumedCal = 0;
+            totalPro = 0;
+            save();
+        }
+    }
+</script>
+
+</body>
+</html>
