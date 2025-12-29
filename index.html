@@ -161,38 +161,55 @@ document.getElementById('food-input').onchange = async (e) => {
     const file = e.target.files[0];
     if(!file) return;
     const status = document.getElementById('status');
-    status.innerText = "分析中，請稍候...";
+    status.innerText = "🚀 正在傳輸圖片至 Google AI...";
 
     try {
-        // 優先讀取 Base64
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const base64 = reader.result;
             
-            // 呼叫 Gemini AI
-            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${MY_API_KEY}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    contents: [{ parts: [
-                        {text: "辨識圖中食物或營養標籤，估算熱量(kcal)與蛋白質(g)。請嚴格回傳JSON: {\"cal\":數字, \"pro\":數字, \"name\":\"名稱\"}"},
-                        {inline_data: {mime_type: "image/jpeg", data: base64.split(',')[1]}}
-                    ]}]
-                })
-            });
-            
-            const resData = await resp.json();
-            const result = JSON.parse(resData.candidates[0].content.parts[0].text.replace(/```json|```/g, ''));
-            
-            // 更新數值
-            document.getElementById('cal-left').innerText -= result.cal;
-            document.getElementById('pro-total').innerText = parseFloat(document.getElementById('pro-total').innerText) + result.pro;
-            status.innerText = `辨識成功: ${result.name}`;
-            alert(`已自動扣除 ${result.cal}大卡，增加 ${result.pro}g 蛋白質`);
+            try {
+                const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${MY_API_KEY}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        contents: [{ parts: [
+                            {text: "辨識圖中食物或營養標籤，估算熱量(kcal)與蛋白質(g)。請嚴格回傳純JSON格式：{\"cal\":數字, \"pro\":數字, \"name\":\"名稱\"}"},
+                            {inline_data: {mime_type: "image/jpeg", data: base64.split(',')[1]}}
+                        ]}]
+                    })
+                });
+
+                const resData = await resp.json();
+                
+                // 檢查 API 是否報錯
+                if (resData.error) {
+                    status.innerText = "❌ API 錯誤: " + resData.error.message;
+                    console.error(resData.error);
+                    return;
+                }
+
+                const textResponse = resData.candidates[0].content.parts[0].text;
+                const result = JSON.parse(textResponse.replace(/```json|```/g, ''));
+                
+                // 更新數值 (確保原本數值是數字)
+                const calEl = document.getElementById('cal-left');
+                const proEl = document.getElementById('pro-total');
+                
+                calEl.innerText = parseInt(calEl.innerText) - result.cal;
+                proEl.innerText = (parseFloat(proEl.innerText) + result.pro).toFixed(1);
+                
+                status.innerText = `✅ 辨識完成: ${result.name}`;
+                alert(`成功紀錄 ${result.name}！\n熱量: -${result.cal} kcal\n蛋白質: +${result.pro} g`);
+                
+            } catch (apiErr) {
+                status.innerText = "❌ 連線失敗，請檢查網路或 API Key";
+                console.error(apiErr);
+            }
         };
     } catch(err) {
-        status.innerText = "辨識失敗，請重試";
+        status.innerText = "❌ 圖片處理失敗";
         console.error(err);
     }
 };
@@ -289,4 +306,5 @@ document.getElementById('food-input').onchange = async (e) => {
 
 </body>
 </html>
+
 
