@@ -174,7 +174,8 @@ document.getElementById('food-input').onchange = async (e) => {
             const base64Data = reader.result.split(',')[1];
             
             // 呼叫 Google Gemini API
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${MY_GEMINI_KEY}`;
+            // 將原本的 v1beta 改成 v1
+const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${MY_GEMINI_KEY}`;
             
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -313,6 +314,7 @@ document.getElementById('food-input').onchange = async (e) => {
 
 </body>
 </html>
+
 
 
 
