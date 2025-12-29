@@ -153,64 +153,71 @@
         <span>🥩 蛋白質: <b id="pro-total">0</b> g</span>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <script>
-const MY_API_KEY = 'AIzaSyCV4UqHOr0fVu5RUBvZvrpZxhzXeBljmHY'; 
+// --- 重要：請將下方的 '你的金鑰' 替換成你截圖中那一串藍色的代碼 ---
+const MY_GEMINI_KEY = 'AIzaSyCV4UqHOr0fVu5RUBvZvrpZxhzXeBljmHY'; 
 
 document.getElementById('food-input').onchange = async (e) => {
     const file = e.target.files[0];
-    if(!file) return;
+    if (!file) return;
+
     const status = document.getElementById('status');
-    status.innerText = "🚀 正在傳輸圖片至 Google AI...";
+    status.innerText = "⏳ 正在分析圖片，請稍候...";
+    status.style.color = "#ffcc00"; // 顯示為黃色提醒正在處理
 
     try {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = async () => {
-            const base64 = reader.result;
+            const base64Data = reader.result.split(',')[1];
             
-            try {
-                const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${MY_API_KEY}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        contents: [{ parts: [
-                            {text: "辨識圖中食物或營養標籤，估算熱量(kcal)與蛋白質(g)。請嚴格回傳純JSON格式：{\"cal\":數字, \"pro\":數字, \"name\":\"名稱\"}"},
-                            {inline_data: {mime_type: "image/jpeg", data: base64.split(',')[1]}}
-                        ]}]
-                    })
-                });
+            // 呼叫 Google Gemini API
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${MY_GEMINI_KEY}`;
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: "請辨識圖中食物或營養標籤，估算熱量(kcal)與蛋白質(g)。必須嚴格回傳純JSON格式，不要包含標記文字：{\"cal\": 數字, \"pro\": 數字, \"name\": \"食物名稱\"}" },
+                            { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+                        ]
+                    }]
+                })
+            });
 
-                const resData = await resp.json();
-                
-                // 檢查 API 是否報錯
-                if (resData.error) {
-                    status.innerText = "❌ API 錯誤: " + resData.error.message;
-                    console.error(resData.error);
-                    return;
-                }
+            const data = await response.json();
 
-                const textResponse = resData.candidates[0].content.parts[0].text;
-                const result = JSON.parse(textResponse.replace(/```json|```/g, ''));
-                
-                // 更新數值 (確保原本數值是數字)
-                const calEl = document.getElementById('cal-left');
-                const proEl = document.getElementById('pro-total');
-                
-                calEl.innerText = parseInt(calEl.innerText) - result.cal;
-                proEl.innerText = (parseFloat(proEl.innerText) + result.pro).toFixed(1);
-                
-                status.innerText = `✅ 辨識完成: ${result.name}`;
-                alert(`成功紀錄 ${result.name}！\n熱量: -${result.cal} kcal\n蛋白質: +${result.pro} g`);
-                
-            } catch (apiErr) {
-                status.innerText = "❌ 連線失敗，請檢查網路或 API Key";
-                console.error(apiErr);
+            // 錯誤捕捉邏輯
+            if (data.error) {
+                throw new Error(`API 錯誤: ${data.error.message}`);
             }
+
+            const rawText = data.candidates[0].content.parts[0].text;
+            const result = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+
+            // 更新網頁上的數值
+            const calEl = document.getElementById('cal-left');
+            const proEl = document.getElementById('pro-total');
+
+            // 執行扣除與增加邏輯
+            const currentCal = parseInt(calEl.innerText) || 2000;
+            const currentPro = parseFloat(proEl.innerText) || 0;
+
+            calEl.innerText = currentCal - result.cal;
+            proEl.innerText = (currentPro + result.pro).toFixed(1);
+
+            status.innerText = `✅ 辨識完成：${result.name}`;
+            status.style.color = "#4CAF50";
+            alert(`成功紀錄 ${result.name}！\n🔥 熱量：-${result.cal} kcal\n🥩 蛋白質：+${result.pro} g`);
         };
-    } catch(err) {
-        status.innerText = "❌ 圖片處理失敗";
+    } catch (err) {
         console.error(err);
+        status.innerText = `❌ 出錯了：${err.message}`;
+        status.style.color = "#ff4444";
     }
 };
 </script>
@@ -306,5 +313,6 @@ document.getElementById('food-input').onchange = async (e) => {
 
 </body>
 </html>
+
 
 
